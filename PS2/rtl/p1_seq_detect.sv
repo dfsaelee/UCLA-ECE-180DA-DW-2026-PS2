@@ -48,12 +48,12 @@
 // a Mealy output or a second state variable.
 // ============================================================================
 module p1_seq_detect (
-    input  logic       clk_i,
-    input  logic       rst_ni,
-    input  logic       bit_i,       // one bit of the stream, per cycle
-    output logic       found_o,     // 1-cycle pulse on each completed match
-    output logic [7:0] count_o      // how many matches so far (saturates at 255)
-);
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       bit_i,       // one bit of the stream, per cycle
+  output logic       found_o,     // 1-cycle pulse on each completed match
+  output logic [7:0] count_o      // how many matches so far (saturates at 255)
+  );
 
   // --------------------------------------------------------------------------
   // State encoding. Each state means "the longest prefix of 1101 that the
@@ -74,15 +74,15 @@ module p1_seq_detect (
   // S_110 instead of 10, which during debugging is worth a great deal.
   // --------------------------------------------------------------------------
   typedef enum logic [1:0] {
-    S_IDLE = 2'b00,
-    S_1    = 2'b01,
-    S_11   = 2'b10,
-    S_110  = 2'b11
+  S_IDLE = 2'b00,
+  S_1    = 2'b01,
+  S_11   = 2'b10,
+  S_110  = 2'b11
   } state_e;
 
-  state_e state_q, state_d;
+  state_e state_q, state_d; // output q and input d for flipflop
 
-  logic [7:0] count_q;
+  logic [7:0] count_q; // incrementer to index the stream?
 
   // --------------------------------------------------------------------------
   // TODO 1a -- next state and output logic.
@@ -104,27 +104,46 @@ module p1_seq_detect (
   // every path assigns state_d, so you cannot infer a latch.
   // --------------------------------------------------------------------------
   always_comb begin
-    state_d = state_q;   // default: hold
+    state_d = state_q;   // default: hold current state
     found_o = 1'b0;      // default: no match this cycle
 
     case (state_q)
       S_IDLE: begin
-        // <-- fill in
+        if (bit_i == 1'b1) begin // none state --1-> (1)
+          state_d = S_1;
+        end else begin
+          state_d = S_IDLE;
+        end
       end
 
       S_1: begin
-        // <-- fill in
+        if (bit_i == 1'b1) begin // (1) --1-> (11)
+          state_d = S_11;
+        end else begin
+          state_d = S_IDLE;
+        end
       end
 
       S_11: begin
-        // <-- fill in
+        if (bit_i == 1'b0) begin // if (11) --0-> (110)
+          state_d = S_110;
+        end else if (bit_i == 1'b1) begin
+          state_d = S_11; // if (11) --1-> (11)
+        end else begin
+          state_d = S_IDLE;
+        end
       end
 
       S_110: begin
-        // <-- fill in
+        if (bit_i == 1'b1) begin // if (110) --1->  (1) and inc count
+          state_d = S_1;
+          found_o = 1'b1; // pulse high?
+        end else begin
+          state_d = S_IDLE;
+        end
       end
 
-      default: begin
+      default: begin // else break the cycle and go to none
         state_d = S_IDLE;
       end
     endcase
@@ -135,7 +154,11 @@ module p1_seq_detect (
   // Two lines.
   // --------------------------------------------------------------------------
   always_ff @(posedge clk_i) begin
-    // <-- fill in
+    if (!rst_ni) begin
+      state_q <= S_IDLE;
+    end else begin
+      state_q <= state_d;
+    end
   end
 
   // --------------------------------------------------------------------------
@@ -154,10 +177,11 @@ module p1_seq_detect (
   always_ff @(posedge clk_i) begin
     if (!rst_ni) begin
       count_q <= '0;
+    end else if (found_o && count_q != 8'hFF) begin // this will trigger after the comb logic happens
+      count_q <= count_q + 1'b1; // increment and store count after happens
     end
-    // <-- fill in: increment on found_o, saturating at 8'hFF
   end
 
   assign count_o = count_q;
 
-endmodule
+  endmodule
