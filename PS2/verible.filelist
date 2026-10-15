@@ -1,0 +1,5 @@
+./rtl/hw_pkg.sv
+./rtl/p1_seq_detect.sv
+./rtl/p2_regfile.sv
+./tb/tb_p1.sv
+./tb/tb_p2.sv
